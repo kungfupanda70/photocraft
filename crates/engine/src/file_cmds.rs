@@ -101,7 +101,12 @@ pub(crate) fn write_file(path: &str, _bytes: &[u8]) -> Result<()> {
 /// Files of a folder that look like images we can open, sorted by name.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn list_images(dir: &str) -> Result<Vec<String>> {
-    let rd = std::fs::read_dir(dir).map_err(|e| EngineError::Other(format!("{dir}: {e}")))?;
+    // Prevent path traversal attacks by rejecting paths containing '..'.
+    let path = std::path::Path::new(dir);
+    if path.components().any(|c| c == std::path::Component::ParentDir) {
+        return Err(EngineError::Other(format!("Invalid input: {}", path.display())));
+    }
+    let rd = std::fs::read_dir(path).map_err(|e| EngineError::Other(format!("{dir}: {e}")))?;
     let mut out: Vec<String> = rd
         .filter_map(|e| e.ok())
         .map(|e| e.path())
